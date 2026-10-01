@@ -1595,6 +1595,18 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
         }
     }
 
+    /// Host-supplied fallback for symbol codepoints the selected face does
+    /// not carry (for example Nerd Font icons). The claimed cell is isolated
+    /// into its own segment and drawn with the provider's font — the same
+    /// mechanism isolated BiDi cells use — because CoreText's CTLine ignores
+    /// `kCTFontCascadeListAttribute` on iOS during shaping.
+    public var glyphFallbackProvider: (any TerminalGlyphFallbackProvider)? = nil {
+        didSet {
+            terminal.updateFullScreen()
+            queuePendingDisplay()
+        }
+    }
+
     /// When true, custom block/box glyphs use anti-aliasing instead of pixel-aligned edges.
     public var antiAliasCustomBlockGlyphs: Bool = false {
         didSet {

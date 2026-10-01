@@ -1000,6 +1000,16 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
         }
     }
 
+    /// Host-supplied fallback for symbol codepoints the selected face does
+    /// not carry (for example Nerd Font icons). See the iOS declaration for
+    /// the full contract.
+    public var glyphFallbackProvider: (any TerminalGlyphFallbackProvider)? = nil {
+        didSet {
+            terminal.updateFullScreen()
+            queuePendingDisplay()
+        }
+    }
+
     /// When true, custom block/box glyphs use anti-aliasing instead of pixel-aligned edges.
     public var antiAliasCustomBlockGlyphs: Bool = false {
         didSet {

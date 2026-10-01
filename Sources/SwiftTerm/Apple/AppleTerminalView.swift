@@ -1259,6 +1259,28 @@ extension TerminalView {
                 builder = nil
                 previousPlaceholder = nil
                 previousPlaceholderAttribute = nil
+            } else if !blinkHidden,
+                      let fallback = claimedFallbackFont(for: character,
+                                                         attributes: currentAttributes) {
+                // Host-claimed symbol the face cannot draw (Nerd Font icons).
+                // Isolate like a BiDi cell, but substitute the provider's
+                // face directly — CTLine ignores cascadeList on iOS, so the
+                // attribute font must already be the fallback.
+                flushPending()
+                if let finished = builder?.buildIfNeeded() {
+                    segments.append(finished)
+                }
+                builder = ViewLineSegmentBuilder(column: visualCol, columnWidth: width)
+                var isolatedAttributes = currentAttributes
+                isolatedAttributes[.font] = fallback
+                builder?.append(text: String(character), attributes: isolatedAttributes,
+                                cellUTF16Lengths: [character.utf16.count])
+                if let finished = builder?.buildIfNeeded() {
+                    segments.append(finished)
+                }
+                builder = nil
+                previousPlaceholder = nil
+                previousPlaceholderAttribute = nil
             } else {
                 // Common path: just accumulate into the batch
                 let renderedCharacter: Character = blinkHidden ? " " : character
