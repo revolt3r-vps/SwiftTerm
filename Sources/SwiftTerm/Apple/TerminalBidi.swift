@@ -966,7 +966,7 @@ enum TerminalBidi {
     /// (#837). `hashOf` may memoize across calls within a frame.
     static func layoutRevision(row: Int, buffer: Buffer,
                                maximumRows: Int,
-                               hashOf: (BufferLine) -> UInt64) -> Int {
+                               hashOf: (BufferLine) -> UInt64 = { $0.renderContentHash() }) -> Int {
         guard row >= 0, row < buffer.lines.count,
               buffer.lines[row].bidiState.supportMode == .implicit,
               let bounds = paragraphBounds(row: row, buffer: buffer,
