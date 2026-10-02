@@ -69,6 +69,48 @@ public final class BufferLine: CustomDebugStringConvertible {
     @inline(__always)
     private func bump() { generation &+= 1 }
 
+    /// Fingerprint of everything the draw path reads from this line: the
+    /// cells plus the line-level state that shapes them (wrap, bidi,
+    /// renderMode, semantic marks, image anchors). `generation` bumps on
+    /// every write including rewrites of identical cells, so the Metal row
+    /// cache compares this hash on a generation miss to reuse draw data
+    /// when the rewrite produced identical output (#837).
+    func renderContentHash() -> UInt64 {
+        var hasher = Hasher()
+        hasher.combine(dataSize)
+        for i in 0..<dataSize {
+            data[i].hashRenderContents(into: &hasher)
+        }
+        hasher.combine(isWrapped)
+        hasher.combine(bidiState)
+        hasher.combine(renderMode)
+        for mark in semanticMarks {
+            hasher.combine(mark.kind.tagName)
+            hasher.combine(mark.column)
+            hasher.combine(mark.group)
+        }
+        hasher.combine(images?.count ?? -1)
+        if let images {
+            for image in images {
+                hasher.combine(image.col)
+                hasher.combine(image.pixelWidth)
+                hasher.combine(image.pixelHeight)
+                if let kitty = image as? KittyPlacementImage {
+                    hasher.combine(kitty.kittyImageId)
+                    hasher.combine(kitty.kittyPlacementId)
+                    hasher.combine(kitty.kittyCol)
+                    hasher.combine(kitty.kittyRow)
+                    hasher.combine(kitty.kittyCols)
+                    hasher.combine(kitty.kittyRows)
+                    hasher.combine(kitty.kittyZIndex)
+                    hasher.combine(kitty.kittyPixelOffsetX)
+                    hasher.combine(kitty.kittyPixelOffsetY)
+                }
+            }
+        }
+        return UInt64(bitPattern: Int64(hasher.finalize()))
+    }
+
     public init (cols: Int, fillData: CharData? = nil, isWrapped: Bool = false,
                  bidiState: BidiPresentationState = .default)
     {

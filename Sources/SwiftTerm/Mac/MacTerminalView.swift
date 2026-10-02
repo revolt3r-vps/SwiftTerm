@@ -248,6 +248,10 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     /// we rebuild the MTKView so a fresh CAMetalLayer binds to it.
     private weak var metalBoundWindow: NSWindow?
     var metalDirtyRange: ClosedRange<Int>?
+    /// Bumped whenever non-cell state that feeds the row draw path changes
+    /// (colorsChanged, selectionChanged). The Metal row cache keys entries
+    /// on cell content only, so this forces re-resolution (#837).
+    var metalStyleEpoch: UInt64 = 0
     var pendingMetalDisplay: Bool = false
     /// The cursor position last submitted to the Metal renderer. Used to
     /// detect pure cursor-only moves (no rows dirty) such as the
@@ -2710,6 +2714,9 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
                     metalDirtyRange = nil
                 }
             }
+            // Selection paints through row attributes, so cached row
+            // draw data must re-resolve (#837).
+            metalStyleEpoch &+= 1
             queueMetalDisplay()
             return
         }

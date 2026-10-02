@@ -339,7 +339,18 @@ public struct CharData: CustomDebugStringConvertible {
     
     /// The color and character attributes for the cell
     public var attribute: Attribute
-    
+
+    /// Feeds every field the draw path reads into `hasher`. The Metal row
+    /// cache fingerprints a line with this so a rewrite that produced
+    /// identical cells reuses the built draw data (#837).
+    func hashRenderContents(into hasher: inout Hasher) {
+        hasher.combine(code)
+        hasher.combine(width)
+        hasher.combine(payload.code)
+        hasher.combine(semanticContentCode)
+        hasher.combine(attribute)
+    }
+
     /// Initializes a new instance of the CharData structure with the provided attribute and code.
     /// Use `Terminal.makeCharData` for Character-based construction.
     /// - Parameter attribute: an attribute containing the color and style attributes for the cell

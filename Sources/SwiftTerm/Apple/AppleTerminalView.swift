@@ -568,6 +568,8 @@ extension TerminalView {
         urlAttributes = [:]
         attributes = [:]
         clearCGColorCache()
+        // Resolved colors live inside cached row draw data (#837).
+        metalStyleEpoch &+= 1
 
 #if os(macOS)
         if !isUsingMetalRenderer {
