@@ -787,6 +787,17 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
             Float((terminalView.bounds.height - cellHeight * CGFloat(row - visibleDisp + 1)) * scale)
         }
 
+        // One content hash per line per frame, shared between the bidi
+        // paragraph revision and the generation-miss rescue below.
+        var lineHashes: [ObjectIdentifier: UInt64] = [:]
+        let hashOf = { (line: BufferLine) -> UInt64 in
+            let key = ObjectIdentifier(line)
+            if let cached = lineHashes[key] { return cached }
+            let hash = line.renderContentHash()
+            lineHashes[key] = hash
+            return hash
+        }
+
         var rebuiltRows = 0
         var cachedRows = 0
         for row in visibleRange {
@@ -795,7 +806,8 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
             let lineGeneration = line.generation
             let bidiParagraphRevision = TerminalBidi.layoutRevision(
                 row: row, buffer: buffer,
-                maximumRows: terminalView.terminal.options.maximumBidiParagraphRows)
+                maximumRows: terminalView.terminal.options.maximumBidiParagraphRows,
+                hashOf: hashOf)
             var entry = rowCache[lineKey]
             // Entry validity: the key pins the BufferLine object; on top of
             // that, recycleGeneration must match (recycled rows keep the
@@ -808,7 +820,7 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
                var existing = entry,
                existing.recycleGeneration == line.recycleGeneration,
                existing.bidiParagraphRevision == bidiParagraphRevision,
-               existing.contentHash == line.renderContentHash() {
+               existing.contentHash == hashOf(line) {
                 // A rewrite that reproduced identical cells still bumps
                 // generation; the fingerprint lets us adopt it without
                 // rebuilding (#837).
@@ -833,7 +845,7 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
                 let buffers = bufferingMode == .perRowPersistent ? makeRowBuffers(from: rowData) : nil
                 entry = RowCacheEntry(generation: lineGeneration,
                                       recycleGeneration: line.recycleGeneration,
-                                      contentHash: line.renderContentHash(),
+                                      contentHash: hashOf(line),
                                       bidiParagraphRevision: bidiParagraphRevision,
                                       data: rowData, buffers: buffers)
                 rowCache[lineKey] = entry
@@ -851,7 +863,7 @@ final class MetalTerminalRenderer: NSObject, MTKViewDelegate {
                 if cached.data == nil {
                     entry = RowCacheEntry(generation: lineGeneration,
                                           recycleGeneration: line.recycleGeneration,
-                                          contentHash: line.renderContentHash(),
+                                          contentHash: hashOf(line),
                                           bidiParagraphRevision: bidiParagraphRevision,
                                           data: rowData, buffers: cached.buffers)
                     rowCache[lineKey] = entry

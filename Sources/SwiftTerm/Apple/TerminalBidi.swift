@@ -568,13 +568,13 @@ enum TerminalBidi {
         return first...last
     }
 
-    private static func paragraphRevision(_ bounds: ClosedRange<Int>, buffer: Buffer) -> Int {
+    private static func paragraphRevision(_ bounds: ClosedRange<Int>, buffer: Buffer,
+                                          hashOf: (BufferLine) -> UInt64) -> Int {
         var hasher = Hasher()
         for row in bounds {
             let line = buffer.lines[row]
             hasher.combine(ObjectIdentifier(line))
-            hasher.combine(line.generation)
-            hasher.combine(line.isWrapped)
+            hasher.combine(hashOf(line))
         }
         return hasher.finalize()
     }
@@ -738,7 +738,8 @@ enum TerminalBidi {
             return nil
         }
         let state = buffer.lines[bounds.lowerBound].bidiState
-        let revision = paragraphRevision(bounds, buffer: buffer)
+        let revision = paragraphRevision(bounds, buffer: buffer,
+                                         hashOf: { $0.renderContentHash() })
         let key = ParagraphKey(buffer: ObjectIdentifier(buffer),
                                firstRow: bounds.lowerBound,
                                lastRow: bounds.upperBound,
@@ -960,15 +961,19 @@ enum TerminalBidi {
         return first...last
     }
 
+    /// Paragraph revision over rendered content: a rewrite that reproduces
+    /// identical cells keeps the same revision, so row caches survive it
+    /// (#837). `hashOf` may memoize across calls within a frame.
     static func layoutRevision(row: Int, buffer: Buffer,
-                               maximumRows: Int) -> Int {
+                               maximumRows: Int,
+                               hashOf: (BufferLine) -> UInt64) -> Int {
         guard row >= 0, row < buffer.lines.count,
               buffer.lines[row].bidiState.supportMode == .implicit,
               let bounds = paragraphBounds(row: row, buffer: buffer,
                                            maximumRows: maximumRows) else {
             return 0
         }
-        return paragraphRevision(bounds, buffer: buffer)
+        return paragraphRevision(bounds, buffer: buffer, hashOf: hashOf)
     }
 }
 #endif
